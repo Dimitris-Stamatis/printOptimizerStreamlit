@@ -357,6 +357,19 @@ def main():
     st.set_page_config(page_title="Print Layout Optimizer", layout="wide", page_icon="🖼️")
     
     st.title("🖼️ Print Layout Optimizer")
+    
+    # Buy me a coffee link at the top
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 10px; background-color: #f0f2f6; border-radius: 5px; margin-bottom: 20px;">
+            <a href="https://buymeacoffee.com/dstamatis" target="_blank" style="text-decoration: none;">
+                <span style="font-size: 18px;">🍺 Buy me a beer!</span>
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
     st.markdown("---")
     
     # Initialize per-user session state
