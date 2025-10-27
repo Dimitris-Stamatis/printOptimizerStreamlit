@@ -4,6 +4,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 from rectpack import newPacker
 import json
+import csv
 from io import BytesIO, StringIO
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.patches as patches
