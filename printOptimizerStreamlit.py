@@ -4,8 +4,6 @@ from collections import Counter
 import matplotlib.pyplot as plt
 from rectpack import newPacker
 import json
-import os
-import csv
 from io import BytesIO, StringIO
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.patches as patches
@@ -340,31 +338,18 @@ def export_to_json(packer, sheet_width, sheet_height, rect_sizes):
 # ==================== STREAMLIT APP ===========================
 # ==============================================================
 
-def load_config():
-    """Load saved configuration from JSON file."""
-    config_file = "print_optimizer_web_config.json"
-    if os.path.exists(config_file):
-        try:
-            with open(config_file, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            st.warning(f"Could not load config: {e}")
-    return {
-        'sheet_width': 103.0,
-        'min_height': 0.0,
-        'max_height': 150.0,
-        'rectangles': []
-    }
-
-
-def save_config(config):
-    """Save current configuration to JSON file."""
-    config_file = "print_optimizer_web_config.json"
-    try:
-        with open(config_file, 'w') as f:
-            json.dump(config, f, indent=2)
-    except Exception as e:
-        st.warning(f"Could not save config: {e}")
+def initialize_session_state():
+    """Initialize session state with default values (per-user storage)."""
+    if 'sheet_width' not in st.session_state:
+        st.session_state.sheet_width = 103.0
+    if 'min_height' not in st.session_state:
+        st.session_state.min_height = 0.0
+    if 'max_height' not in st.session_state:
+        st.session_state.max_height = 150.0
+    if 'rectangles' not in st.session_state:
+        st.session_state.rectangles = []
+    if 'last_optimization' not in st.session_state:
+        st.session_state.last_optimization = None
 
 
 def main():
@@ -373,12 +358,8 @@ def main():
     st.title("🖼️ Print Layout Optimizer")
     st.markdown("---")
     
-    # Initialize session state
-    if 'config' not in st.session_state:
-        st.session_state.config = load_config()
-    
-    if 'last_optimization' not in st.session_state:
-        st.session_state.last_optimization = None
+    # Initialize per-user session state
+    initialize_session_state()
     
     # Sheet settings
     st.header("📏 Sheet Settings")
@@ -387,26 +368,32 @@ def main():
     with col1:
         sheet_width = st.number_input(
             "Width (cm)", 
-            value=st.session_state.config.get('sheet_width', 103.0),
+            value=st.session_state.sheet_width,
             min_value=1.0,
-            step=0.1
+            step=0.1,
+            key="input_sheet_width"
         )
+        st.session_state.sheet_width = sheet_width
     
     with col2:
         min_height = st.number_input(
             "Min Height (cm, 0=no limit)", 
-            value=st.session_state.config.get('min_height', 0.0),
+            value=st.session_state.min_height,
             min_value=0.0,
-            step=0.1
+            step=0.1,
+            key="input_min_height"
         )
+        st.session_state.min_height = min_height
     
     with col3:
         max_height = st.number_input(
             "Max Height (cm, 0=no limit)", 
-            value=st.session_state.config.get('max_height', 150.0),
+            value=st.session_state.max_height,
             min_value=0.0,
-            step=0.1
+            step=0.1,
+            key="input_max_height"
         )
+        st.session_state.max_height = max_height
     
     st.markdown("---")
     
@@ -427,48 +414,34 @@ def main():
         st.write("")
         st.write("")
         if st.button("➕ Add", use_container_width=True):
-            rectangles = st.session_state.config.get('rectangles', [])
-            rectangles.append([new_width, new_height, new_min])
-            st.session_state.config['rectangles'] = rectangles
-            save_config(st.session_state.config)
+            st.session_state.rectangles.append([new_width, new_height, new_min])
             st.rerun()
     
     st.markdown("---")
     
     # Display current rectangles
-    rectangles = st.session_state.config.get('rectangles', [])
-    
-    if rectangles:
+    if st.session_state.rectangles:
         st.header("📦 Current Print Sizes")
         
-        for i, (w, h, min_req) in enumerate(rectangles):
+        for i, (w, h, min_req) in enumerate(st.session_state.rectangles):
             col1, col2 = st.columns([5, 1])
             with col1:
                 st.text(f"📐 {w} × {h} cm (minimum {min_req} piece{'s' if min_req != 1 else ''})")
             with col2:
                 if st.button("🗑️", key=f"del_{i}"):
-                    rectangles.pop(i)
-                    st.session_state.config['rectangles'] = rectangles
-                    save_config(st.session_state.config)
+                    st.session_state.rectangles.pop(i)
                     st.rerun()
         
         if st.button("🗑️ Delete All", type="secondary"):
-            st.session_state.config['rectangles'] = []
-            save_config(st.session_state.config)
+            st.session_state.rectangles = []
             st.rerun()
         
         st.markdown("---")
         
         # Run optimization
         if st.button("🚀 Run Optimization", type="primary", use_container_width=True):
-            # Update config before optimization
-            st.session_state.config['sheet_width'] = sheet_width
-            st.session_state.config['min_height'] = min_height
-            st.session_state.config['max_height'] = max_height
-            save_config(st.session_state.config)
-            
             with st.spinner("🔄 Running optimization... This may take a moment."):
-                rect_tuples = [tuple(r) for r in rectangles]
+                rect_tuples = [tuple(r) for r in st.session_state.rectangles]
                 packer, total, mix, best_h = find_best_mix(
                     rect_tuples, 
                     sheet_width, 
@@ -478,7 +451,7 @@ def main():
                 )
                 
                 if packer:
-                    # Store optimization result
+                    # Store optimization result in session state (per-user)
                     st.session_state.last_optimization = {
                         'packer': packer,
                         'total': total,
